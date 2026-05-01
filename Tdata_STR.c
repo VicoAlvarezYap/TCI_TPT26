@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #include <stdlib.h>
 #include <string.h>
 #include "Tdata_STR.h"
@@ -100,4 +99,4 @@ Tdata string_A_List(Tdata cadena){
 }
 
 
->>>>>>> main
+
