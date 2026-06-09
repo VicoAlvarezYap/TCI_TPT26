@@ -24,4 +24,5 @@ Tdata cargarTData(str);
 void mostrarTData(Tdata);
 void liberarTData(Tdata);
 
+
 #endif

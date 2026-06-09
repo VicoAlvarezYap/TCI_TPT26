@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include "Tdata.h"
 #include "Tdata_Set.h"
-#include "Tdata_List.h"
+#include "Tdata_LIST.h"
 #include "Tdata_STR.h"
-
+#include "Tdata_AF.h"
 
 int main(){
 	
@@ -113,7 +113,7 @@ int main(){
 	Tdata frase = concatenar_String(palabra1, palabra2);
 	mostrarTData(frase); // Deberï¿½a imprimir: Hola Mundo*/
 	
-	Tdata texto = cargarTDataS("Hola");
+	/*Tdata texto = cargarTDataS("Hola");
 	Tdata lista = string_A_List(texto);
 	
 	printf("String original: ");
@@ -175,7 +175,25 @@ int main(){
     mostrarTData(listaUnida);
 
     printf("\n\n--- Fin de Pruebas ---\n");
+	*/
 	
+	// 1. Inicialización
+
+	Automata* af = crearAutomata("q0", 1); 
+	
+
+	agregarEstado(af, "q0", 0);
+	agregarEstado(af, "q1", 0);
+	agregarEstado(af, "q2", 1); // Estado final
+	
+	
+	// Transición simple
+	agregarTransicion(af, "q0", 'a', cargarTDataS("q1"));
+	agregarTransicion(af, "q1", 'b', cargarTDataS("q0"));
+	agregarTransicion(af, "q1", 'a', cargarTData("q2"));
+
+
+	mostrarAutomata(af);
 	
 	return 0;
 }

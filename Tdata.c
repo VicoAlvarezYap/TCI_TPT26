@@ -92,3 +92,5 @@ void liberarTData(Tdata n) {
 	// Finalmente, liberamos la estructura del nodo actual
 	free(n);
 }
+
+

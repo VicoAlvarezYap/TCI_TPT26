@@ -12,7 +12,7 @@ void append(Tdata *lista, Tdata elem){ // Agregamos un elemento al final de la l
 		printf ("ERROR");
 	}else{
 		Tdata lis;
-		lis = crearListaVacia();
+		lis = crearListaVacia(LIST);
 		lis -> data = elem;
 		lis -> next = NULL;
 		
