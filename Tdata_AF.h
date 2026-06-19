@@ -32,4 +32,8 @@ Transition* buscarTransicion(StateNode* estado, Symbol s);
 StateNode* buscarEstado(Automata* af, State name);
 void agregarTransicion(Automata* af, State fromName, Symbol s, Tdata to);
 void mostrarAutomata(Automata* af);
+int procesarCadenaAFD(Automata* af, Tdata cadena);
+int procesarCadenaAFND(Automata* af, Tdata cadena);
+Automata* construirSubconjuntosAFD(Automata* afnd);
+
 #endif
