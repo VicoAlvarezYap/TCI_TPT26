@@ -1,56 +1,79 @@
+#include "Tdata.h"
 #include "Tdata_AF.h"
 #include "Tdata_LIST.h"
 #include "Tdata_STR.h"
 #include "Tdata_SET.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+
+// Declaración explícita de funciones auxiliares del TAD_STR para evitar warnings implícitos
+void cadena_agregar(str *A, char c);
+int compara_listas_char(str A, str B);
 
 Automata* crearAutomata(State q0, int deterministic) {
 	Automata* af = (Automata*)malloc(sizeof(Automata));
 	af->states = NULL;
-	af->q0 = strdup(q0);
 	af->deterministic = deterministic;
+	
+	str copiaQ0 = NULL;
+	str aux = q0;
+	while (aux != NULL) {
+		cadena_agregar(&copiaQ0, aux->dato);
+		aux = aux->sig;
+	}
+	af->q0 = copiaQ0;
 	return af;
 }
 
 void agregarEstado(Automata* af, State name, int isFinal) {
+	if (af == NULL || name == NULL) return;
 	StateNode* newNode = (StateNode*)malloc(sizeof(StateNode));
-	newNode->name = strdup(name);
 	newNode->isFinal = isFinal;
 	newNode->transitions = NULL;
+	
+	str copiaName = NULL;
+	str aux = name;
+	while (aux != NULL) {
+		cadena_agregar(&copiaName, aux->dato);
+		aux = aux->sig;
+	}
+	newNode->name = copiaName;
+	
 	newNode->next = af->states;
 	af->states = newNode;
 }
+
+StateNode* buscarEstado(Automata* af, State name) {
+	if (af == NULL || af->states == NULL || name == NULL) {
+		return NULL;
+	}
+	
+	StateNode* actual = af->states;
+	while (actual != NULL) {
+		if (actual->name != NULL) {
+			if (compara_listas_char(actual->name, name) == 0) {
+				return actual; 
+			}
+		}
+		actual = actual->next;
+	}
+	return NULL;
+}
+
 Transition* buscarTransicion(StateNode* estado, Symbol s) {
 	if (estado == NULL) return NULL;
 	
 	Transition* actual = estado->transitions;
 	while (actual != NULL) {
 		if (actual->symbol == s) {
-			return actual; // Encontramos la transición para este símbolo
-		}
-		actual = actual->next;
-	}
-	return NULL; // No existe una transición para este símbolo
-}
-StateNode* buscarEstado(Automata* af, State name) {
-	//verificamos que el autómata exista
-	if (af == NULL || af->states == NULL) {
-		return NULL;
-	}
-	
-	// recorremos la lista de estados
-	StateNode* actual = af->states;
-	while (actual != NULL) {
-		
-		if (strcmp(actual->name, name) == 0) {
 			return actual; 
 		}
 		actual = actual->next;
 	}
-	
-	return NULL;
+	return NULL; 
 }
+
 void agregarTransicion(Automata* af, State fromName, Symbol s, Tdata to) {
 	StateNode* origen = buscarEstado(af, fromName);
 	if (!origen) return;
@@ -58,11 +81,9 @@ void agregarTransicion(Automata* af, State fromName, Symbol s, Tdata to) {
 	Transition* transExistente = buscarTransicion(origen, s);
 	
 	if (transExistente == NULL) {
-		// Si la transiccion no existe
 		Transition* nueva = (Transition*)malloc(sizeof(Transition));
 		nueva->symbol = s;
 		
-		// Si es AFND y el destino no es lista, lo envolvemos en una
 		if (af->deterministic == 0 && to->nodeType != LIST) {
 			Tdata lista = crearListaVacia();
 			append(&lista, to);
@@ -74,243 +95,112 @@ void agregarTransicion(Automata* af, State fromName, Symbol s, Tdata to) {
 		nueva->next = origen->transitions;
 		origen->transitions = nueva;
 	} else {
-		// la transiccion existe
-		// Si ya existe y es AFND simplemente agregamos el nuevo destino a la lista
 		if (af->deterministic == 0) {
-			if (transExistente->to->nodeType != LIST) {
-			}
 			append(&(transExistente->to), to);
 		} else {
-			printf("Error: Intentando agregar segunda transición en AFD\n");
+			printf("Error: Intentando agregar segunda transicion en AFD\n");
 		}
 	}
-}
-void mostrarAutomata(Automata* af) {
-	printf("--- Automata (%s) ---\n", af->deterministic ? "Determinista (AFD)" : "No Determinista (AFND)");
-	printf("Estado inicial: %s\n", af->q0);
-	
-	StateNode* current = af->states;
-	while (current != NULL) {
-		printf("Estado: %s %s\n", current->name, current->isFinal ? "(Final)" : "");
-		
-		Transition* trans = current->transitions;
-		while (trans != NULL) {
-			printf("  --(%c)--> ", trans->symbol);
-			// función mostrarTData de Tdata
-			mostrarTData(trans->to); 
-			printf("\n");
-			trans = trans->next;
-		}
-		current = current->next;
-	}
-}
-int procesarCadenaAFD(Automata* af, Tdata cadena) {
-	// CASO CRÍTICO 3: Protección contra autómata o cadena inexistente
-	if (af == NULL || af->states == NULL || cadena == NULL) {
-		printf("[SEGURIDAD] Error: Automata no inicializado o cadena NULL.\n");
-		return 0;
-	}
-	
-	if (af->deterministic != 1) {
-		printf("[SEGURIDAD] Error: El automata no es configurado como AFD.\n");
-		return 0;
-	}
-	
-	// Obtener el texto de forma segura
-	str texto = NULL;
-	if (cadena->nodeType == STR) {
-		texto = cadena->string;
-	} else if (cadena->nodeType == LIST) {
-		Tdata auxStr = list_A_String(cadena);
-		if (auxStr != NULL) texto = auxStr->string;
-	}
-	
-	if (texto == NULL) return 0;
-	
-	// Arrancamos en el estado inicial q0
-	StateNode* estadoActual = buscarEstado(af, af->q0);
-	if (estadoActual == NULL) {
-		printf("[SEGURIDAD] Error: El estado inicial '%s' no existe en el automata.\n", af->q0);
-		return 0;
-	}
-	
-	int i = 0;
-	while (texto[i] != '\0') {
-		Symbol simbolo = texto[i];
-		
-		// CASO CRÍTICO 4: Si en el paso anterior caímos en un estado inválido
-		if (estadoActual == NULL) {
-			return 0; 
-		}
-		
-		Transition* trans = buscarTransicion(estadoActual, simbolo);
-		
-		// CASO CRÍTICO 2: Símbolo fuera del alfabeto (transición no existe)
-		if (trans == NULL) {
-			return 0; // Rechazo inmediato por callejón sin salida (estado de error implícito)
-		}
-		
-		// Validación de consistencia del destino
-		if (trans->to == NULL || trans->to->nodeType != STR || trans->to->string == NULL) {
-			return 0;
-		}
-		
-		State siguienteEstadoNombre = trans->to->string;
-		estadoActual = buscarEstado(af, siguienteEstadoNombre);
-		
-		i++;
-	}
-	
-	// CASO CRÍTICO 1: Si llegó acá (incluyendo cadena vacía ""), evaluamos de forma segura
-	if (estadoActual != NULL && estadoActual->isFinal == 1) {
-		return 1; // Cadena ACEPTADA
-	}
-	
-	return 0; // Cadena RECHAZADA
-}
-int procesarCadenaAFND(Automata* af, Tdata cadena) {
-	// Protección básica de seguridad
-	if (af == NULL || af->states == NULL || cadena == NULL) {
-		printf("[SEGURIDAD] Error: Automata no inicializado o cadena NULL.\n");
-		return 0;
-	}
-	
-	// Convertimos la cadena a texto crudo
-	str texto = NULL;
-	if (cadena->nodeType == STR) {
-		texto = cadena->string;
-	} else if (cadena->nodeType == LIST) {
-		Tdata auxStr = list_A_String(cadena);
-		if (auxStr != NULL) texto = auxStr->string;
-	}
-	if (texto == NULL) return 0;
-	
-	// 1. Creamos el conjunto de estados actuales e insertamos el inicial q0
-	Tdata estadosActuales = crearSetVacio();
-	Tdata estadoInicialStr = cargarTDataS(af->q0);
-	insert_set(&estadosActuales, estadoInicialStr);
-	
-	int i = 0;
-	// 2. Recorremos la cadena carácter por carácter
-	while (texto[i] != '\0') {
-		Symbol simbolo = texto[i];
-		
-		// Creamos un conjunto para acumular todos los siguientes estados posibles
-		Tdata proximosEstados = crearSetVacio();
-		
-		// Recorremos el conjunto de estados actuales (eslabón por eslabón)
-		Tdata eslabonEstado = estadosActuales->data;
-		while (eslabonEstado != NULL) {
-			// El nombre del estado actual en el que estamos parados en este hilo
-			str nombreEstadoActual = eslabonEstado->data->string;
-			StateNode* nodoEstado = buscarEstado(af, nombreEstadoActual);
-			
-			if (nodoEstado != NULL) {
-				// Buscamos si este estado tiene transiciones para el símbolo
-				Transition* trans = buscarTransicion(nodoEstado, simbolo);
-				
-				if (trans != NULL && trans->to != NULL) {
-					// Como es AFND, trans->to es una LIST de estados destinos
-					Tdata eslabonDestino = trans->to->data;
-					while (eslabonDestino != NULL) {
-						// Insertamos cada destino en el conjunto de próximos estados
-						// insert_set se encarga automáticamente de eliminar duplicados
-						insert_set(&proximosEstados, eslabonDestino->data);
-						eslabonDestino = eslabonDestino->next;
-					}
-				}
-			}
-			eslabonEstado = eslabonEstado->next;
-		}
-		
-		// Liberamos el conjunto viejo para evitar fugas de memoria y actualizamos
-		// (En un entorno de producción limpiaríamos la memoria de estadosActuales)
-		estadosActuales = proximosEstados;
-		
-		// Si nos quedamos sin estados posibles en el camino, la cadena muere
-		if (estadosActuales->data == NULL) {
-			return 0;
-		}
-		
-		i++;
-	}
-	
-	// 3. Al terminar la cadena, verificamos si AL MENOS UNO de los estados actuales es final
-	Tdata eslabonFinal = estadosActuales->data;
-	while (eslabonFinal != NULL) {
-		StateNode* nodoEvaluar = buscarEstado(af, eslabonFinal->data->string);
-		if (nodoEvaluar != NULL && nodoEvaluar->isFinal == 1) {
-			return 1; // Con que uno solo acepte, la cadena es ACEPTADA por el AFND
-		}
-		eslabonFinal = eslabonFinal->next;
-	}
-	
-	return 0; // Ningún camino llegó a un estado final
 }
 
-// Función auxiliar para verificar si un macroestado (Conjunto) ya existe en la lista de estados del AFD
-// Función auxiliar para verificar si un macroestado ya existe en el AFD
+void transformar_A_BufferPlano(str origen, char* destino) {
+	int i = 0;
+	while (origen != NULL && i < 127) {
+		destino[i++] = origen->dato;
+		origen = origen->sig;
+	}
+	destino[i] = '\0';
+}
+
 int existeMacroestadoEnAFD(Automata* afd, const char* nombreBuscado) {
 	if (afd == NULL || afd->states == NULL) return 0;
 	StateNode* actual = afd->states;
+	str auxBuscado = load2(nombreBuscado);
+	
 	while (actual != NULL) {
-		if (strcmp(actual->name, nombreBuscado) == 0) {
-			return 1; 
+		if (actual->name != NULL) {
+			if (compara_listas_char(actual->name, auxBuscado) == 0) {
+				return 1;
+			}
 		}
 		actual = actual->next;
 	}
 	return 0;
 }
 
-// Función auxiliar para ordenar los caracteres de un nombre compuesto (ej: "q1_q0" -> "q0_q1")
 void ordenarNombreEstado(char* str) {
 	int n = strlen(str);
-	if (n <= 2) return; 
+	if (n <= 1) return;
 	
-	if (strcmp(str, "q1_q2_q0") == 0 || strcmp(str, "q0_q2_q1") == 0 || strcmp(str, "q1_q0_q2") == 0) {
-		strcpy(str, "q0_q1_q2");
-	} else if (strcmp(str, "q2_q0") == 0) {
-		strcpy(str, "q0_q2");
+	char tokens[16][32];
+	int cant = 0;
+	
+	char copia[128];
+	strcpy(copia, str);
+	char* t = strtok(copia, "_");
+	while (t != NULL && cant < 16) {
+		strcpy(tokens[cant++], t);
+		t = strtok(NULL, "_");
+	}
+	
+	for (int i = 0; i < cant - 1; i++) {
+		for (int j = 0; j < cant - i - 1; j++) {
+			if (strcmp(tokens[j], tokens[j + 1]) > 0) {
+				char aux[32];
+				strcpy(aux, tokens[j]);
+				strcpy(tokens[j], tokens[j + 1]);
+				strcpy(tokens[j + 1], aux);
+			}
+		}
+	}
+	
+	str[0] = '\0';
+	for (int i = 0; i < cant; i++) {
+		if (i > 0) strcat(str, "_");
+		strcat(str, tokens[i]);
 	}
 }
 
-// 1. RECOLECTOR DINÁMICO POR TOKENS SANITIZADO
 void calcularDestinoPorNombres(Automata* afnd, const char* macroestadoOrigen, Symbol simbolo, char* bufferDestino) {
+	if (strcmp(macroestadoOrigen, "q_vacio") == 0) {
+		strcpy(bufferDestino, "q_vacio");
+		return;
+	}
 	bufferDestino[0] = '\0';
-	char nombresRegistrados[5][10];
+	char nombresRegistrados[10][32];
 	int cant = 0;
 	
 	char copiaOrigen[128];
 	strcpy(copiaOrigen, macroestadoOrigen);
 	
-	// Desglosamos el macroestado usando el guion bajo como separador nativo
 	char* token = strtok(copiaOrigen, "_");
 	while (token != NULL) {
-		StateNode* nodo = buscarEstado(afnd, token);
+		str tokenStr = load2(token);
+		StateNode* nodo = buscarEstado(afnd, tokenStr);
 		if (nodo != NULL) {
 			Transition* trans = buscarTransicion(nodo, simbolo);
 			if (trans != NULL && trans->to != NULL) {
-				// Recorremos la lista de destinos del AFND de tipo LIST (nodo tipo 3)
 				Tdata dest = trans->to;
-				// Si tu append mete los datos colgados en el campo data de la lista
 				if (dest != NULL && dest->nodeType == LIST) {
 					dest = dest->data;
 				}
 				
 				while (dest != NULL) {
 					Tdata elementoActual = dest;
-					// Si es un nodo eslabón intermedio, extraemos el STR que tiene adentro
 					if (dest->nodeType == LIST || dest->nodeType == SET) {
 						elementoActual = dest->data;
 					}
 					
 					if (elementoActual != NULL && elementoActual->nodeType == STR && elementoActual->string != NULL) {
+						char bufferElem[32];
+						transformar_A_BufferPlano(elementoActual->string, bufferElem);
+						
 						int yaExiste = 0;
 						for (int i = 0; i < cant; i++) {
-							if (strcmp(nombresRegistrados[i], elementoActual->string) == 0) yaExiste = 1;
+							if (strcmp(nombresRegistrados[i], bufferElem) == 0) yaExiste = 1;
 						}
-						if (!yaExiste && cant < 5) {
-							strcpy(nombresRegistrados[cant], elementoActual->string);
+						if (!yaExiste && cant < 10) {
+							strcpy(nombresRegistrados[cant], bufferElem);
 							cant++;
 						}
 					}
@@ -321,7 +211,6 @@ void calcularDestinoPorNombres(Automata* afnd, const char* macroestadoOrigen, Sy
 		token = strtok(NULL, "_");
 	}
 	
-	// Unificamos los nombres encontrados en el buffer
 	for (int i = 0; i < cant; i++) {
 		if (i > 0) strcat(bufferDestino, "_");
 		strcat(bufferDestino, nombresRegistrados[i]);
@@ -329,7 +218,6 @@ void calcularDestinoPorNombres(Automata* afnd, const char* macroestadoOrigen, Sy
 	ordenarNombreEstado(bufferDestino);
 }
 
-// 2. ALGORITMO GENÉRICO COMPLETO POR NOMBRE DE CADENAS
 Automata* construirSubconjuntosAFD(Automata* afnd) {
 	if (afnd == NULL || afnd->states == NULL || afnd->deterministic != 0) {
 		return NULL;
@@ -337,11 +225,14 @@ Automata* construirSubconjuntosAFD(Automata* afnd) {
 	
 	Automata* afdResultante = crearAutomata(afnd->q0, 1);
 	
-	char colaNombres[30][128];
+	char colaNombres[50][128];
 	int frente = 0;
 	int fondo = 0;
 	
-	strcpy(colaNombres[fondo], afnd->q0);
+	char inicialPlano[128];
+	transformar_A_BufferPlano(afnd->q0, inicialPlano);
+	
+	strcpy(colaNombres[fondo], inicialPlano);
 	fondo++;
 	
 	agregarEstado(afdResultante, afnd->q0, (buscarEstado(afnd, afnd->q0)->isFinal));
@@ -360,80 +251,112 @@ Automata* construirSubconjuntosAFD(Automata* afnd) {
 			char nombreDestinoAFD[128];
 			calcularDestinoPorNombres(afnd, estadoActualNombre, s, nombreDestinoAFD);
 			
-			if (strlen(nombreDestinoAFD) > 0 && strcmp(nombreDestinoAFD, "q_vacio") != 0) {
-				
+			if (strlen(nombreDestinoAFD) == 0) {
+				strcpy(nombreDestinoAFD, "q_vacio");
+			}
+			
+			if (strlen(nombreDestinoAFD) > 0) {
 				if (!existeMacroestadoEnAFD(afdResultante, nombreDestinoAFD)) {
-					
 					int esAceptacion = 0;
-					char copiaDest[128];
-					strcpy(copiaDest, nombreDestinoAFD);
-					char* subToken = strtok(copiaDest, "_");
-					while (subToken != NULL) {
-						StateNode* stAFND = buscarEstado(afnd, subToken);
-						if (stAFND != NULL && stAFND->isFinal == 1) {
-							esAceptacion = 1;
+					
+					if (strcmp(nombreDestinoAFD, "q_vacio") != 0) {
+						char copiaDest[128];
+						strcpy(copiaDest, nombreDestinoAFD);
+						char* subToken = strtok(copiaDest, "_");
+						while (subToken != NULL) {
+							str subTokenStr = load2(subToken);
+							StateNode* stAFND = buscarEstado(afnd, subTokenStr);
+							if (stAFND != NULL && stAFND->isFinal == 1) {
+								esAceptacion = 1;
+							}
+							subToken = strtok(NULL, "_");
 						}
-						subToken = strtok(NULL, "_");
 					}
 					
-					agregarEstado(afdResultante, nombreDestinoAFD, esAceptacion);
+					agregarEstado(afdResultante, load2(nombreDestinoAFD), esAceptacion);
 					
-					if (fondo < 30) {
+					if (fondo < 50) {
 						strcpy(colaNombres[fondo], nombreDestinoAFD);
 						fondo++;
 					}
 				}
 				
-				agregarTransicion(afdResultante, estadoActualNombre, s, cargarTDataS(nombreDestinoAFD));
+				agregarTransicion(afdResultante, load2(estadoActualNombre), s, cargarTDataS(load2(nombreDestinoAFD)));
 			}
 		}
 	}
-	
 	return afdResultante;
 }
-// Módulo independiente para traducir nombres combinados a la nomenclatura P de tu hoja
+
 void renombrarEstadosAFD(Automata* afd) {
 	if (afd == NULL || afd->states == NULL) return;
 	
-	// 1. Traducimos el nombre del estado inicial del autómata
-	if (strcmp(afd->q0, "q0") == 0) {
-		free(afd->q0);
-		afd->q0 = strdup("p0");
-	}
+	char nombresOriginales[32][128];
+	char nombresNuevos[32][16];
+	int cantidadMapeos = 0;
 	
-	// 2. Pasada 1: Recorremos y renombramos las etiquetas de los macroestados principales
 	StateNode* actual = afd->states;
 	while (actual != NULL) {
-		char nuevoNombre[32] = "";
+		char bufferName[128];
+		transformar_A_BufferPlano(actual->name, bufferName);
 		
-		if (strcmp(actual->name, "q0") == 0) strcpy(nuevoNombre, "p0");
-		else if (strcmp(actual->name, "q1_q2") == 0 || strcmp(actual->name, "q2_q1") == 0) strcpy(nuevoNombre, "p1");
-		else if (strcmp(actual->name, "q0_q1") == 0 || strcmp(actual->name, "q1_q0") == 0) strcpy(nuevoNombre, "p2");
-		else if (strcmp(actual->name, "q0_q1_q2") == 0 || strcmp(actual->name, "q1_q2_q0") == 0) strcpy(nuevoNombre, "p3");
+		if (strcmp(bufferName, "q_vacio") == 0) {
+			actual = actual->next;
+			continue;
+		}
 		
-		if (strlen(nuevoNombre) > 0) {
-			free(actual->name);
-			actual->name = strdup(nuevoNombre);
+		int encontrado = -1;
+		for (int i = 0; i < cantidadMapeos; i++) {
+			if (strcmp(nombresOriginales[i], bufferName) == 0) {
+				encontrado = i;
+				break;
+			}
+		}
+		
+		if (encontrado == -1 && cantidadMapeos < 32) {
+			strcpy(nombresOriginales[cantidadMapeos], bufferName);
+			
+			char bufferQ0[128];
+			transformar_A_BufferPlano(afd->q0, bufferQ0);
+			if (strcmp(bufferName, bufferQ0) == 0) {
+				strcpy(nombresNuevos[cantidadMapeos], "p0");
+			} else {
+				sprintf(nombresNuevos[cantidadMapeos], "p%d", cantidadMapeos + 1);
+			}
+			encontrado = cantidadMapeos;
+			cantidadMapeos++;
+		}
+		
+		if (encontrado != -1) {
+			actual->name = load2(nombresNuevos[encontrado]);
 		}
 		actual = actual->next;
 	}
 	
-	// 3. Pasada 2: Recorremos las sublistas de transiciones para actualizar los destinos (->to)
+	char bufferQ0[128];
+	transformar_A_BufferPlano(afd->q0, bufferQ0);
+	for (int i = 0; i < cantidadMapeos; i++) {
+		if (strcmp(nombresOriginales[i], bufferQ0) == 0) {
+			afd->q0 = load2(nombresNuevos[i]);
+			break;
+		}
+	}
+	
 	actual = afd->states;
 	while (actual != NULL) {
 		Transition* trans = actual->transitions;
 		while (trans != NULL) {
 			if (trans->to != NULL && trans->to->nodeType == STR && trans->to->string != NULL) {
-				char nuevoDest[32] = "";
+				char bufferDest[128];
+				transformar_A_BufferPlano(trans->to->string, bufferDest);
 				
-				if (strcmp(trans->to->string, "q0") == 0) strcpy(nuevoDest, "p0");
-				else if (strcmp(trans->to->string, "q1_q2") == 0 || strcmp(trans->to->string, "q2_q1") == 0) strcpy(nuevoDest, "p1");
-				else if (strcmp(trans->to->string, "q0_q1") == 0 || strcmp(trans->to->string, "q1_q0") == 0) strcpy(nuevoDest, "p2");
-				else if (strcmp(trans->to->string, "q0_q1_q2") == 0 || strcmp(trans->to->string, "q1_q2_q0") == 0) strcpy(nuevoDest, "p3");
-				
-				if (strlen(nuevoDest) > 0) {
-					free(trans->to->string);
-					trans->to->string = strdup(nuevoDest);
+				if (strcmp(bufferDest, "q_vacio") != 0) {
+					for (int i = 0; i < cantidadMapeos; i++) {
+						if (strcmp(nombresOriginales[i], bufferDest) == 0) {
+							trans->to->string = load2(nombresNuevos[i]);
+							break;
+						}
+					}
 				}
 			}
 			trans = trans->next;
@@ -441,7 +364,7 @@ void renombrarEstadosAFD(Automata* afd) {
 		actual = actual->next;
 	}
 }
-// Módulo independiente para mostrar el AFD en formato de Tabla formal (0 y 1)
+
 void mostrarTablaAFD(Automata* afd) {
 	if (afd == NULL || afd->states == NULL) {
 		printf("Error: Automata vacio o no inicializado.\n");
@@ -454,40 +377,64 @@ void mostrarTablaAFD(Automata* afd) {
 	printf("  Estado       |   0 (a)    |   1 (b)    \n");
 	printf("---------------------------------------------------\n");
 	
-	// Recorremos la lista de estados del AFD
 	StateNode* actual = afd->states;
 	while (actual != NULL) {
-		// Si el estado es de aceptación, le clavamos el asterisco (*) al lado como en tu cuaderno
+		char bufferName[128];
+		transformar_A_BufferPlano(actual->name, bufferName);
+		
 		char marcaAceptacion[4] = " ";
 		if (actual->isFinal == 1) {
 			strcpy(marcaAceptacion, " * ");
 		}
 		
-		// Espaciador prolijo para el nombre del estado
-		printf(" %s%-10s |", marcaAceptacion, actual->name);
-		
-		// Buscamos la transición para el símbolo 'a' (que mapeamos como '0')
-		Transition* transA = buscarTransicion(actual, 'a');
-		if (transA != NULL && transA->to != NULL && transA->to->string != NULL) {
-			printf("  %-9s |", transA->to->string);
+		printf(" %s", marcaAceptacion);
+		if (strcmp(bufferName, "q_vacio") == 0) {
+			printf("%-12s| ", "VACIO");
 		} else {
-			printf("  %-9s |", "[q_vacio]");
+			// Imprime el nombre (p0, p1, etc.) rellenando espacios para alinear la columna
+			int len = strlen(bufferName);
+			print_string(actual->name);
+			for(int i=0; i < (12 - len); i++) printf(" ");
+			printf("| ");
 		}
 		
-		// Buscamos la transición para el símbolo 'b' (que mapeamos como '1')
+		// PROCESAR COLUMNA 0 (a)
+		Transition* transA = buscarTransicion(actual, 'a');
+		if (transA != NULL && transA->to != NULL && transA->to->string != NULL) {
+			char bufferDestA[128];
+			transformar_A_BufferPlano(transA->to->string, bufferDestA);
+			if (strcmp(bufferDestA, "q_vacio") == 0) {
+				printf("%-11s| ", "VACIO");
+			} else {
+				int lenA = strlen(bufferDestA);
+				print_string(transA->to->string);
+				for(int i=0; i < (11 - lenA); i++) printf(" ");
+				printf("| ");
+			}
+		} else {
+			printf("%-11s| ", "VACIO");
+		}
+		
+		// PROCESAR COLUMNA 1 (b)
 		Transition* transB = buscarTransicion(actual, 'b');
 		if (transB != NULL && transB->to != NULL && transB->to->string != NULL) {
-			printf("  %-9s \n", transB->to->string);
+			char bufferDestB[128];
+			transformar_A_BufferPlano(transB->to->string, bufferDestB);
+			if (strcmp(bufferDestB, "q_vacio") == 0) {
+				printf("VACIO\n");
+			} else {
+				print_string(transB->to->string);
+				printf("\n");
+			}
 		} else {
-			printf("  %-9s \n", "[q_vacio]");
+			printf("VACIO\n");
 		}
 		
 		printf("---------------------------------------------------\n");
 		actual = actual->next;
 	}
 }
-// Módulo independiente para mostrar el AFD con formato explícito de conjuntos {q0, q1...}
-// Módulo independiente para mostrar el AFD con formato explícito de conjuntos {q0, q1...}
+
 void mostrarGrafoComoConjuntos(Automata* afd) {
 	if (afd == NULL || afd->states == NULL) {
 		printf("Error: Automata vacio o no inicializado.\n");
@@ -500,46 +447,159 @@ void mostrarGrafoComoConjuntos(Automata* afd) {
 	
 	StateNode* actual = afd->states;
 	while (actual != NULL) {
-		// DIBUJO DEL ESTADO ORIGEN: Reemplazamos los guiones bajos por llaves y comas
-		printf("Macroestado: {");
-		char copiaName[128];
-		strcpy(copiaName, actual->name);
+		char bufferPlano[128];
+		transformar_A_BufferPlano(actual->name, bufferPlano);
 		
-		char* token = strtok(copiaName, "_");
-		int primero = 1;
-		while (token != NULL) {
-			if (!primero) printf(", ");
-			printf("%s", token);
-			primero = 0;
-			token = strtok(NULL, "_"); // Avanza prolijamente el token de origen
+		printf("Macroestado: ");
+		if (strcmp(bufferPlano, "q_vacio") == 0) {
+			printf("[VACIO] (Estado Trampa)");
+		} else {
+			printf("{");
+			str auxName = actual->name;
+			while (auxName != NULL) {
+				if (auxName->dato == '_') {
+					printf(", ");
+				} else {
+					printf("%c", auxName->dato);
+				}
+				auxName = auxName->sig;
+			}
+			printf("}");
 		}
-		printf("} -> %s\n", actual->isFinal ? "ACEPTACION (FINAL)" : "INTERMEDIO");
+		printf(" -> %s\n", actual->isFinal ? "ACEPTACION (FINAL)" : "INTERMEDIO");
 		
-		// DIBUJO DE LAS TRANSICIONES
 		Transition* trans = actual->transitions;
 		if (trans == NULL) {
 			printf("   -- No tiene transiciones salientes --\n");
 		}
 		while (trans != NULL) {
 			char simboloOriginal = (trans->symbol == 'a') ? '0' : '1';
-			printf("   --(%c)--> {", simboloOriginal);
+			printf("   --(%c)--> ", simboloOriginal);
 			
-			if (trans->to != NULL && trans->to->string != NULL) {
-				char copiaTo[128];
-				strcpy(copiaTo, trans->to->string);
-				char* tokenTo = strtok(copiaTo, "_");
-				int primTo = 1;
-				while (tokenTo != NULL) {
-					if (!primTo) printf(", ");
-					printf("%s", tokenTo);
-					primTo = 0;
-					tokenTo = strtok(NULL, "_"); // ¡CORRECCIÓN CRÍTICA!: Avanza el token de destino
+			if (trans->to != NULL && trans->to->nodeType == STR && trans->to->string != NULL) {
+				char bufferDest[128];
+				transformar_A_BufferPlano(trans->to->string, bufferDest);
+				
+				if (strcmp(bufferDest, "q_vacio") == 0) {
+					printf("[VACIO]\n");
+				} else {
+					printf("{");
+					str auxTo = trans->to->string;
+					while (auxTo != NULL) {
+						if (auxTo->dato == '_') {
+							printf(", ");
+						} else {
+							printf("%c", auxTo->dato);
+						}
+						auxTo = auxTo->sig;
+					}
+					printf("}\n");
 				}
 			}
-			printf("}\n");
 			trans = trans->next;
 		}
 		printf("---------------------------------------------------\n");
 		actual = actual->next;
 	}
+}
+// Función auxiliar interna para quitar espacios y saltos de línea molestos
+void limpiarEspacios(char* str) {
+	int j = 0;
+	for (int i = 0; str[i] != '\0'; i++) {
+		if (str[i] != ' ' && str[i] != '\t' && str[i] != '\n' && str[i] != '\r') {
+			str[j++] = str[i];
+		}
+	}
+	str[j] = '\0';
+}
+
+Automata* cargarAFNDDesdeTXT(const char* nombreArchivo) {
+	FILE* arch = fopen(nombreArchivo, "r");
+	if (arch == NULL) {
+		printf("[ERROR] No se pudo abrir el archivo: %s\n", nombreArchivo);
+		return NULL;
+	}
+	
+	char linea[256];
+	Automata* afnd = NULL;
+	int seccionTransiciones = 0;
+	
+	while (fgets(linea, sizeof(linea), arch) != NULL) {
+		// Ignorar comentarios o líneas vacías
+		if (linea[0] == '\n' || linea[0] == '\r' || linea[0] == '#') {
+			continue;
+		}
+		
+		// Detectar si pasamos a las transiciones
+		if (strstr(linea, "->") != NULL) {
+			seccionTransiciones = 1;
+		}
+		
+		// ?? SECCIÓN ESTADOS: Si no tiene flecha y tiene coma, son los estados
+		if (!seccionTransiciones) {
+			if (strchr(linea, ',') != NULL) {
+				char* token = strtok(linea, ",");
+				while (token != NULL) {
+					char auxEstado[32];
+					strcpy(auxEstado, token);
+					limpiarEspacios(auxEstado);
+					
+					int esFinal = 0;
+					char* nombreLimpio = auxEstado;
+					if (auxEstado[0] == '*') {
+						esFinal = 1;
+						nombreLimpio = &auxEstado[1]; // Saltamos el asterisco
+					}
+					
+					if (strlen(nombreLimpio) > 0) {
+						if (afnd == NULL) {
+							// Inicializa con el primer estado que encuentre
+							afnd = crearAutomata(load2(nombreLimpio), 0);
+						}
+						agregarEstado(afnd, load2(nombreLimpio), esFinal);
+					}
+					token = strtok(NULL, ",");
+				}
+			}
+			continue;
+		}
+		
+		// SECCIÓN TRANSICIONES: Procesamos las líneas con '->'
+		if (seccionTransiciones) {
+			char copiaLinea[256];
+			strcpy(copiaLinea, linea);
+			
+			char* parteIzquierda = strtok(copiaLinea, "->");
+			char* parteDerecha = strtok(NULL, "->");
+			
+			if (parteIzquierda != NULL && parteDerecha != NULL) {
+				char* origToken = strtok(parteIzquierda, ",");
+				char* simbToken = strtok(NULL, ",");
+				
+				if (origToken != NULL && simbToken != NULL) {
+					char origen[32], simboloStr[32], destinos[128];
+					strcpy(origen, origToken); limpiarEspacios(origen);
+					strcpy(simboloStr, simbToken); limpiarEspacios(simboloStr);
+					strcpy(destinos, parteDerecha); limpiarEspacios(destinos);
+					
+					char s = (simboloStr[0] == '0') ? 'a' : 'b';
+					
+					char* destToken = strtok(destinos, "_");
+					while (destToken != NULL) {
+						char destLimpio[32];
+						strcpy(destLimpio, destToken);
+						limpiarEspacios(destLimpio);
+						
+						if (strlen(destLimpio) > 0 && strcmp(destLimpio, "-") != 0) {
+							agregarTransicion(afnd, load2(origen), s, cargarTDataS(load2(destLimpio)));
+						}
+						destToken = strtok(NULL, "_");
+					}
+				}
+			}
+		}
+	}
+	
+	fclose(arch);
+	return afnd; // Devuelve el autómata perfectamente estructurado
 }

@@ -1,16 +1,16 @@
 #ifndef TDATA_AF_H
 #define TDATA_AF_H
+
 #include "Tdata.h"
 #include <stdio.h>
-#include "Tdata_STR"
-
+#include "Tdata_STR.h"
 
 typedef char Symbol;
-typedef char* State; // Usamos string para nombres de estados
+typedef str State; // ?? ¡SOLUCIÓN!: Mapeamos State directamente al tipo 'str' (Tnodo*) global
 
 typedef struct transition {
 	Symbol symbol;
-	Tdata to;  // Guarda el dato
+	Tdata to;  
 	struct transition* next;
 } Transition;
 
@@ -24,8 +24,10 @@ typedef struct stateNode {
 typedef struct {
 	StateNode* states;
 	State q0;
-	int deterministic; //  AFD= 1  AFND=0
+	int deterministic; // AFD = 1, AFND = 0
 } Automata;
+
+// Prototipos sincronizados con tipo 'State' unificado
 Automata* crearAutomata(State q0, int deterministic);
 void agregarEstado(Automata* af, State name, int isFinal);
 Transition* buscarTransicion(StateNode* estado, Symbol s);
@@ -38,5 +40,6 @@ Automata* construirSubconjuntosAFD(Automata* afnd);
 void renombrarEstadosAFD(Automata* afd);
 void mostrarTablaAFD(Automata* afd);
 void mostrarGrafoComoConjuntos(Automata* afd);
+Automata* cargarAFNDDesdeTXT(const char* nombreArchivo);
 
 #endif

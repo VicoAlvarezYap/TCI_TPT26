@@ -3,6 +3,8 @@
 #include <string.h>
 
 #include "Tdata.h"
+#include "Tdata_STR.h"
+
 
 Tdata nuevoNodoVacio(int tipo) { //privada 
 	Tdata nuevo = (Tdata)malloc(sizeof(struct dataType));
@@ -46,7 +48,11 @@ void mostrarTData(Tdata n) {
 	
 	switch (n->nodeType) {
 	case STR:
-		printf("%s", n->string ? n->string : "vacio");
+		if (n->string != NULL) {
+			print_string(n->string); // <--- Cambiamos printf("%s") por print_string nativo
+		} else {
+			printf("vacio");
+		}
 		break;
 		
 	case SET:

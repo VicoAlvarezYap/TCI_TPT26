@@ -1,134 +1,155 @@
-#include <stdlib.h>
-#include <string.h>
 #include "Tdata_STR.h"
-#include "Tdata.h"
 #include "TDATA_LIST.h"
+#include "Tdata.h"
+#include "Tdata_STR.h"
+// Función auxiliar para agregar caracteres al final de la lista enlazada
+void cadena_agregar(str *A, char c) {
+	str nuevo = (str)malloc(sizeof(Tnodo));
+	nuevo->dato = c;
+	nuevo->sig = NULL;
+	
+	if (*A == NULL) {
+		*A = nuevo;
+	} else {
+		str aux = *A;
+		while (aux->sig != NULL) {
+			aux = aux->sig;
+		}
+		aux->sig = nuevo;
+	}
+}
 
-// --- FUNCIONES DE LA Cï¿½TEDRA ---
+// Reconstrucción de load2: Pasa de char* plano a lista enlazada de chars
 str load2(const char* s) {
 	if (s == NULL) return NULL;
-	str r = (str)malloc(strlen(s) + 1);
-	if (r != NULL) {
-		strcpy(r, s);
+	str r = NULL;
+	int i = 0;
+	while (s[i] != '\0') {
+		cadena_agregar(&r, s[i]);
+		i++;
 	}
 	return r;
 }
 
+// El print_string corregido para que recorra e imprima TODO el macroestado compuesto
 void print_string(str s) {
-	if (s != NULL) printf("%s", s);
+	if (s == NULL) return;
+	str aux = s;
+	while (aux != NULL) {
+		printf("%c", aux->dato);
+		aux = aux->sig;
+	}
 }
 
 Tdata cargarTDataS(str texto) {
-	// Usamos el creador de la cï¿½tedra (create_str_ast es el Tdata vacï¿½o)
 	Tdata n = (Tdata)malloc(sizeof(struct dataType));
 	n->nodeType = STR;
 	
-	// IMPORTANTE: Usamos load2 de la cï¿½tedra para la copia profunda
-	n->string = load2(texto); 
-	
+	// Clonamos la lista enlazada para mantener la copia profunda independiente
+	str copia = NULL;
+	str aux = texto;
+	while (aux != NULL) {
+		cadena_agregar(&copia, aux->dato);
+		aux = aux->sig;
+	}
+	n->string = copia;
 	return n;
+}
+
+// Comparador profundo carácter por carácter en paralelo (Reemplazo directo de strcmp)
+int compara_listas_char(str A, str B) {
+	if (A == NULL && B == NULL) return 0;
+	if (A == NULL) return -1;
+	if (B == NULL) return 1;
+	
+	while (A != NULL && B != NULL) {
+		if (A->dato != B->dato) {
+			return (A->dato < B->dato) ? -1 : 1;
+		}
+		A = A->sig;
+		B = B->sig;
+	}
+	
+	if (A == NULL && B == NULL) return 0;
+	return (A == NULL) ? -1 : 1;
 }
 
 int sonIguales(Tdata s1, Tdata s2) {
 	if (s1 == NULL || s2 == NULL) return 0;
 	if (s1->nodeType != STR || s2->nodeType != STR) return 0;
-	
-	return strcmp(s1->string, s2->string) == 0;
+	return compara_listas_char(s1->string, s2->string) == 0;
 }
-	
-int longitudS(str s){
-	if (s == NULL) return 0;
-	return strlen(s);
-}
-int comparar_string(Tdata s1, Tdata s2){
-	if(s1 == NULL || s2 == NULL){
-		return -1;
-	}else{
-		if(s1->nodeType != STR || s2-> nodeType != STR){
-			return -1;
-		}else{
-			return strcmp (s1->string, s2->string); //0 si son iguales y !0 si son distintos
-		}
-	}
-}
-	
-	Tdata concatenar_String(Tdata cadena1, Tdata cadena2) {
-		if (cadena1 == NULL || cadena2 == NULL || cadena1->nodeType != STR || cadena2->nodeType != STR) {
-			return NULL;
-		}
-		
-		// Calculamos largo (usando strlen de string.h directamente para evitar errores)
-		int largoTotal = strlen(cadena1->string) + strlen(cadena2->string) + 1;
-		
-		// Pedimos memoria temporal
-		char *aux = (char*) malloc(largoTotal * sizeof(char));
-		if (aux == NULL) return NULL;
-		
-		strcpy(aux, cadena1->string);
-		strcat(aux, cadena2->string);
-		
-		// Creamos el Tdata final. 
-		// Como cargarTData usa load2, se hace una SEGUNDA copia profunda.
-		Tdata resultado = cargarTDataS(aux);
-		
-		// LIBERAMOS el aux porque cargarTData ya creï¿½ su propia copia con load2
-		free(aux); 
-		
-		return resultado;
-	}
 
-Tdata string_A_List(Tdata cadena){
-	if(cadena == NULL || cadena->nodeType != STR){
-		return NULL;
-	}else{
-		Tdata listaNueva = crearListaVacia();
-		str texto = cadena -> string;
-		
-		for(int i=0; texto[i] != '\0'; i++){
-			char auxT[2];
-			auxT[0] = texto[i];
-			auxT[1] ='\0';
-			
-			Tdata nuevoCaracter = cargarTDataS(auxT);
-			
-			append(&listaNueva, nuevoCaracter);
-		}
-		
-		return listaNueva;
+int longitudS(str s) {
+	int contador = 0;
+	while (s != NULL) {
+		contador++;
+		s = s->sig;
 	}
+	return contador;
 }
-Tdata list_A_String(Tdata lista) {
-	if (lista == NULL || lista->nodeType != LIST) {
+
+int comparar_string(Tdata s1, Tdata s2) {
+	if (s1 == NULL || s2 == NULL) return -1;
+	if (s1->nodeType != STR || s2->nodeType != STR) return -1;
+	return compara_listas_char(s1->string, s2->string);
+}
+
+Tdata concatenar_String(Tdata cadena1, Tdata cadena2) {
+	if (cadena1 == NULL || cadena2 == NULL || cadena1->nodeType != STR || cadena2->nodeType != STR) {
 		return NULL;
 	}
 	
-	// 1. Calculamos el largo que va a tener el string final
-	int largoTotal = length(lista);
-	
-	// 2. Pedimos memoria dinámica para armar la cadena temporal
-	char *auxTexto = (char*) malloc((largoTotal + 1) * sizeof(char));
-	if (auxTexto == NULL) return NULL;
-	
-	// 3. Recorremos la lista carácter por carácter copiándolos al aux
-	Tdata actual = lista->data;
-	int i = 0;
-	while (actual != NULL) {
-		// Como cada nodo de la lista guarda un STR de un solo carácter:
-		if (actual->data != NULL && actual->data->nodeType == STR) {
-			auxTexto[i] = actual->data->string[0];
-			i++;
-		}
-		actual = actual->next;
+	str nuevaLista = NULL;
+	str aux = cadena1->string;
+	while (aux != NULL) {
+		cadena_agregar(&nuevaLista, aux->dato);
+		aux = aux->sig;
 	}
-	auxTexto[i] = '\0'; // Metemos el fin de cadena obligatorio de C
+	aux = cadena2->string;
+	while (aux != NULL) {
+		cadena_agregar(&nuevaLista, aux->dato);
+		aux = aux->sig;
+	}
 	
-	// 4. Envolvemos el char* en un nodo Tdata tipo STR
-	Tdata resultado = cargarTDataS(auxTexto);
-	
-	// 5. Liberamos el auxiliar porque cargarTDataS ya hizo su load2 interno
-	free(auxTexto);
-	
+	Tdata resultado = (Tdata)malloc(sizeof(struct dataType));
+	resultado->nodeType = STR;
+	resultado->string = nuevaLista;
 	return resultado;
 }
 
+Tdata string_A_List(Tdata cadena) {
+	if (cadena == NULL || cadena->nodeType != STR) return NULL;
+	Tdata listaNueva = crearListaVacia();
+	str aux = cadena->string;
+	
+	while (aux != NULL) {
+		char auxT[2] = {aux->dato, '\0'};
+		Tdata nuevoCaracter = cargarTDataS(load2(auxT));
+		append(&listaNueva, nuevoCaracter);
+		aux = aux->sig;
+	}
+	return listaNueva;
+}
 
+Tdata list_A_String(Tdata lista) {
+	if (lista == NULL || lista->nodeType != LIST) return NULL;
+	str nuevaLista = NULL;
+	Tdata actual = lista->data;
+	
+	while (actual != NULL) {
+		if (actual->data != NULL && actual->data->nodeType == STR) {
+			str charAux = actual->data->string;
+			while (charAux != NULL) {
+				cadena_agregar(&nuevaLista, charAux->dato);
+				charAux = charAux->sig;
+			}
+		}
+		actual = actual->next;
+	}
+	
+	Tdata resultado = (Tdata)malloc(sizeof(struct dataType));
+	resultado->nodeType = STR;
+	resultado->string = nuevaLista;
+	return resultado;
+}
