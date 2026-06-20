@@ -35,5 +35,8 @@ void mostrarAutomata(Automata* af);
 int procesarCadenaAFD(Automata* af, Tdata cadena);
 int procesarCadenaAFND(Automata* af, Tdata cadena);
 Automata* construirSubconjuntosAFD(Automata* afnd);
+void renombrarEstadosAFD(Automata* afd);
+void mostrarTablaAFD(Automata* afd);
+void mostrarGrafoComoConjuntos(Automata* afd);
 
 #endif

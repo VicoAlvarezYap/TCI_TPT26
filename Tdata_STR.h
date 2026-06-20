@@ -13,5 +13,6 @@ int longitudS(str s);
 int comparar_string(Tdata, Tdata);
 Tdata concatenar_String(Tdata cadena1, Tdata cadena2);
 Tdata string_A_List(Tdata);
+Tdata list_A_String(Tdata lista);
 
 #endif

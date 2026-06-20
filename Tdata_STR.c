@@ -97,6 +97,38 @@ Tdata string_A_List(Tdata cadena){
 		return listaNueva;
 	}
 }
-
+Tdata list_A_String(Tdata lista) {
+	if (lista == NULL || lista->nodeType != LIST) {
+		return NULL;
+	}
+	
+	// 1. Calculamos el largo que va a tener el string final
+	int largoTotal = length(lista);
+	
+	// 2. Pedimos memoria dinámica para armar la cadena temporal
+	char *auxTexto = (char*) malloc((largoTotal + 1) * sizeof(char));
+	if (auxTexto == NULL) return NULL;
+	
+	// 3. Recorremos la lista carácter por carácter copiándolos al aux
+	Tdata actual = lista->data;
+	int i = 0;
+	while (actual != NULL) {
+		// Como cada nodo de la lista guarda un STR de un solo carácter:
+		if (actual->data != NULL && actual->data->nodeType == STR) {
+			auxTexto[i] = actual->data->string[0];
+			i++;
+		}
+		actual = actual->next;
+	}
+	auxTexto[i] = '\0'; // Metemos el fin de cadena obligatorio de C
+	
+	// 4. Envolvemos el char* en un nodo Tdata tipo STR
+	Tdata resultado = cargarTDataS(auxTexto);
+	
+	// 5. Liberamos el auxiliar porque cargarTDataS ya hizo su load2 interno
+	free(auxTexto);
+	
+	return resultado;
+}
 
 
