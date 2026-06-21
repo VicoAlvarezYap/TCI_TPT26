@@ -29,6 +29,7 @@ typedef struct {
 
 // Prototipos sincronizados con tipo 'State' unificado
 Automata* crearAutomata(State q0, int deterministic);
+Automata* cargarAutomataManual();
 void agregarEstado(Automata* af, State name, int isFinal);
 Transition* buscarTransicion(StateNode* estado, Symbol s);
 StateNode* buscarEstado(Automata* af, State name);
@@ -41,5 +42,6 @@ void renombrarEstadosAFD(Automata* afd);
 void mostrarTablaAFD(Automata* afd);
 void mostrarGrafoComoConjuntos(Automata* afd);
 Automata* cargarAFNDDesdeTXT(const char* nombreArchivo);
+void mostrarAutomataII(Automata* af);
 
 #endif

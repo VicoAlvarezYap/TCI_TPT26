@@ -1,12 +1,13 @@
 # Estados (Inicial va primero, finales con *)
-p, *q, r, *s
+p, *q, *r
 
 # Transiciones (Origen, Simbolo -> destinos combinados con _)
-p, 0 -> q_s
-p, 1 -> q
-q, 0 -> r
-q, 1 -> q_r
-r, 0 -> s
-r, 1 -> p
-s, 0 -> -
-s, 1 -> p
+p, a-> q_r
+p, b -> p
+p, c -> r
+q, a -> -
+q, b -> q_r
+q, c -> p
+r, a -> p
+r, b -> -
+r, c -> q
