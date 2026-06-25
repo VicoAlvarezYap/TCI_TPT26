@@ -39,7 +39,7 @@ int main() {
 		printf("          SISTEMA DE CONVERSION DE AUTOMATAS       \n");
 		printf("===================================================\n");
 		printf(" 1. Cargar AFND desde un archivo (.txt)\n");
-		printf(" 2. Cargar AFND manualmente por consola\n");
+		printf(" 2. Cargar AF manualmente por consola\n");
 		printf(" 3. Salir del programa\n");
 		printf("---------------------------------------------------\n");
 		printf(" Seleccione una opcion: ");
@@ -72,9 +72,8 @@ int main() {
 			
 			printf("\n--- CARGA MANUAL POR CONSOLA ---\n");
 			Automata* af = cargarAutomataManual();
-			mostrarAutomataII(af);
-			
 			procesarYMostrarResultado(af);
+			
 			printf("\nPresione ENTER para volver al menu principal...");
 			fflush(stdin);
 			getchar();

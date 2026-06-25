@@ -10,9 +10,9 @@
 // Declaración explícita de funciones auxiliares del TAD_STR para evitar warnings implícitos
 void cadena_agregar(str *A, char c);
 int compara_listas_char(str A, str B);
-
 Automata* crearAutomata(State q0, int deterministic) {
 	Automata* af = (Automata*)malloc(sizeof(Automata));
+	if (!af) return NULL;
 	af->states = NULL;
 	af->deterministic = deterministic;
 	
@@ -23,8 +23,10 @@ Automata* crearAutomata(State q0, int deterministic) {
 		aux = aux->sig;
 	}
 	af->q0 = copiaQ0;
+	
 	return af;
 }
+
 void agregarEstado(Automata* af, State name, int isFinal) {
 	if (af == NULL || name == NULL) return;
 	StateNode* newNode = (StateNode*)malloc(sizeof(StateNode));
@@ -552,7 +554,7 @@ void mostrarGrafoComoConjuntos(Automata* afd) {
 		}
 		while (trans != NULL) {
 			char simboloOriginal = trans->symbol - 'a' + '0';
-			printf("   --(%c)--> ", simboloOriginal);
+			printf("   --(%c)--> ", trans->symbol);
 			
 			if (trans->to != NULL && trans->to->nodeType == STR && trans->to->string != NULL) {
 				char bufferDest[128];
@@ -578,7 +580,7 @@ void mostrarGrafoComoConjuntos(Automata* afd) {
 		}
 		printf("---------------------------------------------------\n");
 		actual = actual->next;
-	}
+    }
 }
 // Función auxiliar interna para quitar espacios y saltos de línea molestos
 void limpiarEspacios(char* str) {
@@ -594,7 +596,7 @@ void limpiarEspacios(char* str) {
 Automata* cargarAFNDDesdeTXT(const char* nombreArchivo) {
 	FILE* arch = fopen(nombreArchivo, "r");
 	if (arch == NULL) {
-		printf("[ERROR] No se pudo abrir el archivo: %s\n", nombreArchivo);
+		printf("ERROR No se pudo abrir el archivo: %s\n", nombreArchivo);
 		return NULL;
 	}
 	
@@ -688,31 +690,37 @@ static void limpiarBudeEntrada() {
 }
 
 Automata* cargarAutomataManual() {
+	// --- Determinismo ---
 	int deterministic = 0;
 	printf("El automata es determinista? (1: SI, 0: NO): ");
-	if (scanf("%d", &deterministic) != 1) {
-		deterministic = 0;
-	}
-	limpiarBudeEntrada(); 
-	
-	// 1. ALFABETO: Entrada dinámica
-	int totalSimbolos = 0;
-	char alfabeto[20];
-	printf("\n Cuantos simbolos tendra el alfabeto?: ");
-	if (scanf("%d", &totalSimbolos) != 1 || totalSimbolos <= 0) {
-		totalSimbolos = 2; 
-	}
+	if (scanf("%d", &deterministic) != 1) deterministic = 0;
 	limpiarBudeEntrada();
 	
+	// --- Alfabeto ---
+	int totalSimbolos = 0;
+	char alfabeto[20];
+	while (1) {
+		printf("\nCuantos simbolos tendra el alfabeto? (Maximo 20): ");
+		if (scanf("%d", &totalSimbolos) == 1 && totalSimbolos > 0 && totalSimbolos <= 20) {
+			limpiarBudeEntrada();
+			break;
+		}
+		printf("Entrada invalida. Ingrese un numero entre 1 y 20.\n");
+		limpiarBudeEntrada();
+	}
 	for (int i = 0; i < totalSimbolos; i++) {
-		printf("  -> Ingrese el simbolo %d: ", i + 1);
-		scanf("%c", &alfabeto[i]); 
-		limpiarBudeEntrada(); 
+		printf("  -> Simbolo %d: ", i + 1);
+		scanf("%c", &alfabeto[i]);
+		limpiarBudeEntrada();
 	}
 	
-	// 2. INGRESO DE ESTADOS
+	// --- Vector auxiliar de nombres ---
+	char vectorEstados[50][32];
+	int totalEstados = 0;
+	
+	// --- Estados ---
 	printf("\n=== INGRESO DE ESTADOS ===\n");
-	printf("Nota: El primer estado que ingrese sera considerado el INICIAL (q0).\n\n");
+	printf("Nota: El primer estado ingeresado sera el INICIAL.\n\n");
 	
 	Automata* af = NULL;
 	char nombreEstado[32];
@@ -720,16 +728,12 @@ Automata* cargarAutomataManual() {
 	
 	while (1) {
 		printf("Nombre del estado: ");
-		if (scanf("%s", nombreEstado) != 1) {
-			break;
-		}
+		if (scanf("%31s", nombreEstado) != 1) break;
 		limpiarBudeEntrada();
 		
 		int esFinal = 0;
-		printf(" Es un estado de aceptacion? (1: SI, 0: NO): ");
-		if (scanf("%d", &esFinal) != 1) {
-			esFinal = 0;
-		}
+		printf("  Es estado de aceptacion? (1: SI, 0: NO): ");
+		if (scanf("%d", &esFinal) != 1) esFinal = 0;
 		limpiarBudeEntrada();
 		
 		if (esInicial) {
@@ -737,104 +741,111 @@ Automata* cargarAutomataManual() {
 			esInicial = 0;
 		}
 		
-		// Llamada a tu función nativa
 		agregarEstado(af, load2(nombreEstado), esFinal);
-		printf("    Estado %s agregado.\n", nombreEstado);
 		
-		int continuarEstados = 1;
-		printf("\n Desea agregar otro estado? (1: SI, 0: NO): ");
-		if (scanf("%d", &continuarEstados) != 1 || continuarEstados == 0) {
+		// Guardar en el vector auxiliar
+		strcpy(vectorEstados[totalEstados], nombreEstado);
+		totalEstados++;
+		
+		printf("    Estado '%s' agregado.\n", nombreEstado);
+		
+		int continuar = 1;
+		printf("  Agregar otro estado? (1: SI, 0: NO): ");
+		if (scanf("%d", &continuar) != 1 || continuar == 0) {
 			limpiarBudeEntrada();
-			break; 
-		}
-		limpiarBudeEntrada();
-		printf("\n");
-	}
-	
-	if (af == NULL) {
-		printf("[ERROR] No se creo ningun estado. Saliendo...\n");
-		return NULL;
-	}
-	
-	// 3. INGRESO DE TRANSICIONES AUTOMATIZADO (Vinculado a tu Backend)
-	printf("\n=== INGRESO DE TRANSICIONES ===\n");
-	printf("Introduzca el estado de origen; el programa guiara las transiciones del alfabeto.\n\n");
-	
-	while (1) {
-		char origen[32];
-		printf("Estado de origen: ");
-		if (scanf("%s", origen) != 1) {
 			break;
 		}
 		limpiarBudeEntrada();
+	}
+	
+	if (af == NULL) {
+		printf("[ERROR] No se creo ningun estado.\n");
+		return NULL;
+	}
+	
+	// --- Transiciones ---
+	printf("\n=== INGRESO DE TRANSICIONES SECUENCIAL ===\n\n");
+	
+	for (int e = 0; e < totalEstados; e++) {
+		char* origen = vectorEstados[e];
 		
-		// El sistema recorre ordenadamente tu arreglo 'alfabeto'
+		printf("\n--------------------------------------------------\n");
+		printf(" ESTADO: (%s)\n", origen);
+		printf("--------------------------------------------------\n");
+		
 		for (int i = 0; i < totalSimbolos; i++) {
 			char simb = alfabeto[i];
 			
 			while (1) {
 				char destino[32];
-				printf("  -> Con el simbolo '%c', hacia que estado va? (o escriba 'VACIO'): ", simb);
-				if (scanf("%s", destino) != 1) {
-					strcpy(destino, "VACIO");
-				}
+				printf("  -> Con '%c', hacia que estado va? (o 'VACIO'): ", simb);
+				if (scanf("%31s", destino) != 1) strcpy(destino, "VACIO");
 				limpiarBudeEntrada();
 				
-				// Inteligencia de transiciones muertas: 
-				// Si el usuario digita VACIO, simplemente no llamamos a tu backend.
-				// De este modo, buscarTransicion() retornará NULL limpiamente en el futuro.
 				if (strcmp(destino, "VACIO") == 0 || strcmp(destino, "vacio") == 0) {
-					printf("     [INFO] Sin transicion para el simbolo '%c'\n", simb);
-					break; 
-				}
-				
-				// Llamada a tu función nativa (reutiliza o añade a la lista si es AFND)
-				agregarTransicion(af, load2(origen), simb, cargarTDataS(load2(destino)));
-				printf("     [OK] Registrado: (%s) --(%c)--> (%s)\n", origen, simb, destino);
-				
-				// Si configuraste un AFD, pasamos de inmediato al siguiente símbolo del alfabeto
-				if (deterministic == 1) {
+					printf("     Sin transicion para '%c'.\n", simb);
 					break;
 				}
 				
-				// Si configuraste un AFND, habilitamos la multidirección para el mismo símbolo
-				int otroDestino = 0;
-				printf("     El estado '%s' tiene OTRO destino para el simbolo '%c'? (1: SI, 0: NO): ", origen, simb);
-				if (scanf("%d", &otroDestino) != 1 || otroDestino == 0) {
+				int estadoValido = 0;
+				for (int v = 0; v < totalEstados; v++) {
+					if (strcmp(vectorEstados[v], destino) == 0) {
+						estadoValido = 1;
+						break;
+					}
+				}
+				
+				if (!estadoValido) {
+					printf("     ERROR '%s' no existe. Estado Ingresado no valido: ", destino);
+					for (int v = 0; v < totalEstados; v++) printf("{%s} ", vectorEstados[v]);
+					printf("\n");
+					continue;
+				}
+				
+				agregarTransicion(af, load2(origen), simb, cargarTDataS(load2(destino)));
+				printf("     Registrado: (%s) --(%c)--> (%s)\n", origen, simb, destino);
+				
+				if (af->deterministic == 1) break;
+				
+				int otro = 0;
+				printf("       Otro destino para '%c'? (1: SI, 0: NO): ", simb);
+				if (scanf("%d", &otro) != 1 || otro == 0) {
 					limpiarBudeEntrada();
-					break; // Salta al siguiente símbolo del alfabeto
+					break;
 				}
 				limpiarBudeEntrada();
 			}
 		}
-		
-		// Control para cambiar de estado origen o finalizar por completo
-		int continuarTransiciones = 1;
-		printf("\n Desea definir transiciones para OTRO estado de origen? (1: SI, 0: NO): ");
-		if (scanf("%d", &continuarTransiciones) != 1 || continuarTransiciones == 0) {
-			limpiarBudeEntrada();
-			break; 
-		}
-		limpiarBudeEntrada();
-		printf("\n");
 	}
 	
-	printf("\n=== ¡Automata cargado con exito de forma manual! ===\n");
+	printf("\n=== Carga finalizada con exito ===\n");
 	return af;
+}
+
+void imprimirStr(str s) {
+	while (s != NULL) {
+		printf("%c", s->dato);
+		s = s->sig;
+	}
 }
 void mostrarAutomataII(Automata* af) {
 	printf("--- Automata (%s) ---\n", af->deterministic ? "Determinista (AFD)" : "No Determinista (AFND)");
-	printf("Estado inicial: %s\n", af->q0);
+	
+	printf("Estado inicial: ");
+	imprimirStr(af->q0);
+	printf("\n");
 	
 	StateNode* current = af->states;
 	while (current != NULL) {
-		printf("Estado: %c %s\n", current->name, current->isFinal ? "(Final)" : "");
+		printf("Estado: ");
+		imprimirStr(current->name);
+		if (current->isFinal) printf(" (Final)");
+		printf("\n");
 		
 		Transition* trans = current->transitions;
 		while (trans != NULL) {
 			printf("  --(%c)--> ", trans->symbol);
-			// función mostrarTData de Tdata
-			mostrarTData(trans->to); 
+			mostrarTData(trans->to);
 			printf("\n");
 			trans = trans->next;
 		}
