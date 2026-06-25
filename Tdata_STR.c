@@ -153,3 +153,20 @@ Tdata list_A_String(Tdata lista) {
 	resultado->string = nuevaLista;
 	return resultado;
 }
+void debugCompararStr(str A, str B) {
+	printf("    [CHAR DEBUG] A: ");
+	str a = A;
+	while (a != NULL) {
+		printf("'%c'(%d) ", a->dato, (int)a->dato);
+		a = a->sig;
+	}
+	printf("NULL\n");
+	
+	printf("    [CHAR DEBUG] B: ");
+	str b = B;
+	while (b != NULL) {
+		printf("'%c'(%d) ", b->dato, (int)b->dato);
+		b = b->sig;
+	}
+	printf("NULL\n");
+}

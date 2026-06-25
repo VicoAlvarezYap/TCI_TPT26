@@ -27,8 +27,64 @@ void procesarYMostrarResultado(Automata* afndHoja) {
 		
 		mostrarTablaAFD(afdConvertido);
 	} else {
-		printf("[DEBUG] Error: El motor de subconjuntos devolvio un AFD nulo.\n");
+		printf("[ Error: El motor de subconjuntos devolvio un AFD nulo.\n");
 	}
+}
+void menuOperaciones(Automata* af) {
+	int opcion = 0;
+	
+	do {
+		printf("\n===================================================\n");
+		printf("         OPERACIONES SOBRE EL AUTOMATA CARGADO    \n");
+		printf("===================================================\n");
+		printf(" Tipo: %s\n", af->deterministic ? "AFD" : "AFND");
+		printf(" Estado inicial: ");
+		imprimirStr(af->q0);
+		printf("\n");
+		printf("---------------------------------------------------\n");
+		printf(" 1. Mostrar automata\n");
+		printf(" 2. Verificar si una cadena es aceptada\n");
+		if (!af->deterministic) {
+			printf(" 3. Convertir AFND a AFD\n");
+		}
+		printf(" 0. Volver al menu principal\n");
+		printf("---------------------------------------------------\n");
+		printf(" Seleccione una opcion: ");
+		
+		if (scanf("%d", &opcion) != 1) {
+			limpiarBudeEntrada();
+			continue;
+		}
+		limpiarBudeEntrada();
+		
+		switch (opcion) {
+			
+		case 1:
+			mostrarAutomataII(af);
+			break;
+			
+		case 2:
+			probarCadena(af);
+			break;
+			
+		case 3:
+			if (!af->deterministic) {
+				procesarYMostrarResultado(af);
+			} else {
+				printf(" Esta opcion solo esta disponible para AFND.\n");
+			}
+			break;
+			
+		case 0:
+			printf(" Volviendo al menu principal...\n");
+			break;
+			
+		default:
+			printf(" Opcion invalida.\n");
+			break;
+		}
+		
+	} while (opcion != 0);
 }
 
 int main() {
@@ -36,48 +92,50 @@ int main() {
 	
 	do {
 		printf("\n===================================================\n");
-		printf("          SISTEMA DE CONVERSION DE AUTOMATAS       \n");
+		printf("       SISTEMA DE AUTOMATAS FINITOS                \n");
 		printf("===================================================\n");
-		printf(" 1. Cargar AFND desde un archivo (.txt)\n");
+		printf(" 1. Cargar AF desde un archivo (.txt)\n");
 		printf(" 2. Cargar AF manualmente por consola\n");
-		printf(" 3. Salir del programa\n");
+		printf(" 3. Salir\n");
 		printf("---------------------------------------------------\n");
 		printf(" Seleccione una opcion: ");
+		
 		if (scanf("%d", &opcion) != 1) {
-			fflush(stdin);
+			limpiarBudeEntrada();
 			continue;
 		}
-		fflush(stdin);
+		limpiarBudeEntrada();
+		
+		Automata* af = NULL;
 		
 		if (opcion == 1) {
 			char ruta[128];
 			printf("\nIngrese el nombre o ruta del archivo (ej: automata.txt): ");
-			scanf("%s", ruta);
-			fflush(stdin);
+			scanf("%127s", ruta);
+			limpiarBudeEntrada();
 			
-			printf("Intentando abrir y parsear: %s...\n", ruta);
-			Automata* afnd = cargarAFNDDesdeTXT(ruta);
+			printf("Cargando %s...\n", ruta);
+			af = cargarAFDesdeTXT(ruta);
 			
-			if (afnd != NULL) {
-				printf("AFND cargado en memoria exitosamente....\n");
-				procesarYMostrarResultado(afnd);
-			} else {
-				printf(" Alerta: cargarAFNDDesdeTXT devuelvo un objeto NULL.\n");
+			if (af == NULL) {
+				printf("[ERROR] No se pudo cargar el archivo.\n");
 			}
 			
-			printf("\nPresione ENTER para volver al menu principal...");
-			getchar(); 
-		} 
-		else if (opcion == 2) {
-			
+		} else if (opcion == 2) {
 			printf("\n--- CARGA MANUAL POR CONSOLA ---\n");
-			Automata* af = cargarAutomataManual();
-			procesarYMostrarResultado(af);
+			af = cargarAutomataManual();
 			
-			printf("\nPresione ENTER para volver al menu principal...");
-			fflush(stdin);
-			getchar();
+			if (af == NULL) {
+				printf("[ERROR] No se cargo ningun automata.\n");
+			}
 		}
+		
+		// Si se cargo bien, entramos al submenú de operaciones
+		if (af != NULL) {
+			printf("\nAutomata cargado correctamente.\n");
+			menuOperaciones(af);
+		}
+		
 	} while (opcion != 3);
 	
 	printf("\n<< Programa finalizado correctamente >>\n");

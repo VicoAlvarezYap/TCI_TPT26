@@ -41,7 +41,10 @@ Automata* construirSubconjuntosAFD(Automata* afnd);
 void renombrarEstadosAFD(Automata* afd);
 void mostrarTablaAFD(Automata* afd);
 void mostrarGrafoComoConjuntos(Automata* afd);
-Automata* cargarAFNDDesdeTXT(const char* nombreArchivo);
+Automata* cargarAFDesdeTXT(const char* nombreArchivo);
 void mostrarAutomataII(Automata* af);
+void probarCadena(Automata* af);
+void limpiarBudeEntrada();
+void imprimirStr(str s);
 
 #endif

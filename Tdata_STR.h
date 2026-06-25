@@ -16,7 +16,7 @@ int compara_string(Tdata s1, Tdata s2);
 Tdata concatenar_String(Tdata cadena1, Tdata cadena2);
 Tdata string_A_List(Tdata cadena);
 Tdata list_A_String(Tdata lista);
-
+void debugCompararStr(str A, str B);
 // Agregamos el prototipo aquí para que Tdata_AF.c lo vea sin warnings
 int comparar_listas_char(str A, str B); 
 

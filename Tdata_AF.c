@@ -56,15 +56,22 @@ void agregarEstado(Automata* af, State name, int isFinal) {
 
 StateNode* buscarEstado(Automata* af, State name) {
 	if (af == NULL || af->states == NULL || name == NULL) {
+		printf("  [DEBUG buscar] parametro nulo\n");
 		return NULL;
 	}
 	
 	StateNode* actual = af->states;
 	while (actual != NULL) {
 		if (actual->name != NULL) {
-			if (compara_listas_char(actual->name, name) == 0) {
-				return actual; 
-			}
+			//debugCompararStr(actual->name, name);
+			int resultado = compara_listas_char(actual->name, name);
+			//printf("  [DEBUG buscar] comparando '");
+			//imprimirStr(actual->name);
+			//printf("' vs '");
+			//imprimirStr(name);
+			//printf("' -> resultado=%d\n", resultado);
+			
+			if (resultado == 0) return actual;
 		}
 		actual = actual->next;
 	}
@@ -593,7 +600,7 @@ void limpiarEspacios(char* str) {
 	str[j] = '\0';
 }
 
-Automata* cargarAFNDDesdeTXT(const char* nombreArchivo) {
+Automata* cargarAFDesdeTXT(const char* nombreArchivo) {
 	FILE* arch = fopen(nombreArchivo, "r");
 	if (arch == NULL) {
 		printf("ERROR No se pudo abrir el archivo: %s\n", nombreArchivo);
@@ -684,7 +691,7 @@ Automata* cargarAFNDDesdeTXT(const char* nombreArchivo) {
 	return afnd; // Devuelve el autómata perfectamente estructurado
 }
 
-static void limpiarBudeEntrada() {
+void limpiarBudeEntrada() {
 	int c;
 	while ((c = getchar()) != '\n' && c != EOF);
 }
@@ -851,4 +858,123 @@ void mostrarAutomataII(Automata* af) {
 		}
 		current = current->next;
 	}
+}
+int simularAFD(Automata* af, char* cadena) {
+	StateNode* actual = buscarEstado(af, af->q0);
+	if (actual == NULL) {
+		printf("[ERROR] Estado inicial no encontrado.\n");
+		return 0;
+	}
+	
+	printf("\n Recorrido:\n");
+	printf("  Inicio -> ");
+	imprimirStr(actual->name);
+	printf("\n");
+	
+	for (int i = 0; cadena[i] != '\0'; i++) {
+		char simbolo = cadena[i];
+		Transition* trans = buscarTransicion(actual, simbolo);
+		
+		if (trans == NULL) {
+			printf("  --(%c)--> [sin transicion] RECHAZADA\n", simbolo);
+			return 0;
+		}
+		
+		StateNode* siguiente = buscarEstado(af, trans->to->string);
+		if (siguiente == NULL) {
+			printf("  --(%c)--> [estado destino no existe] RECHAZADA\n", simbolo);
+			return 0;
+		}
+		
+		printf("  --(%c)--> ", simbolo);
+		imprimirStr(siguiente->name);
+		printf("\n");
+		
+		actual = siguiente;
+	}
+	
+	if (actual->isFinal) {
+		printf("  Estado final: ");
+		imprimirStr(actual->name);
+		printf(" => ACEPTADA\n");
+		return 1;
+	} else {
+		printf("  Estado final: ");
+		imprimirStr(actual->name);
+		printf(" (no es de aceptacion) => RECHAZADA\n");
+		return 0;
+	}
+}
+
+int simularAFND_rec(Automata* af, StateNode* actual, char* cadena, int pos) {
+	if (cadena[pos] == '\0') {
+		return actual->isFinal;
+	}
+	
+	char simbolo = cadena[pos];
+	Transition* trans = buscarTransicion(actual, simbolo);
+	if (trans == NULL) return 0;
+	
+	Tdata destino = trans->to;
+	
+	// Si es STR (un solo destino — caso AFD o AFND con un destino)
+	if (destino->nodeType == STR) {
+		StateNode* siguiente = buscarEstado(af, destino->string);
+		if (siguiente == NULL) return 0;
+		return simularAFND_rec(af, siguiente, cadena, pos + 1);
+	}
+	
+	// Si es LIST (múltiples destinos — caso AFND)
+	if (destino->nodeType == LIST) {
+		Tdata nodo = destino->data;   
+		while (nodo != NULL) {
+			if (nodo->data != NULL
+				&& nodo->data->nodeType == STR     // chequeo de seguridad: confirma que es STR antes de leer ->string
+				&& nodo->data->string != NULL) {
+				StateNode* siguiente = buscarEstado(af, nodo->data->string);
+				if (siguiente != NULL) {
+					if (simularAFND_rec(af, siguiente, cadena, pos + 1)) {
+						return 1;
+					}
+				}
+			}
+			nodo = nodo->next;
+		}
+	}
+	
+	return 0;
+}
+
+int simularAFND(Automata* af, char* cadena) {
+	StateNode* inicial = buscarEstado(af, af->q0);
+	if (inicial == NULL) {
+		printf("[ERROR] Estado inicial no encontrado.\n");
+		return 0;
+	}
+	return simularAFND_rec(af, inicial, cadena, 0);
+}
+
+void probarCadena(Automata* af) {
+	char cadena[256];
+	
+	printf("\n Ingrese la cadena a evaluar (sin espacios): ");
+	scanf("%255s", cadena);
+	limpiarBudeEntrada();
+	
+	// Validar que todos los símbolos de la cadena existan en el autómata
+	// (opcional pero recomendado)
+	printf("\n Evaluando cadena: \"%s\"\n", cadena);
+	printf("---------------------------------------------------\n");
+	
+	int resultado;
+	if (af->deterministic == 1) {
+		resultado = simularAFD(af, cadena);
+	} else {
+		resultado = simularAFND(af, cadena);
+		printf("\n Cadena \"%s\": %s\n",
+			   cadena,
+			   resultado ? "ACEPTADA" : "RECHAZADA");
+	}
+	
+	printf("---------------------------------------------------\n");
 }
